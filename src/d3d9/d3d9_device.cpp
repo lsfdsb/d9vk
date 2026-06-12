@@ -4547,8 +4547,12 @@ namespace dxvk {
       DxvkBufferSlice mappedBufferSlice = pResource->GetBufferSlice(Subresource);
       const Rc<DxvkBuffer> mappedBuffer = pResource->GetBuffer();
 
-      if (unlikely(pResource->GetFormatMapping().ConversionFormatInfo.FormatType != D3D9ConversionFormat_None)) {
-        Logger::err(str::format("Reading back format", pResource->Desc()->Format, " is not supported. It is uploaded using the fomrat converter."));
+      auto convType = pResource->GetFormatMapping().ConversionFormatInfo.FormatType;
+      if (unlikely(convType != D3D9ConversionFormat_None &&
+                   convType != D3D9ConversionFormat_A4R4G4B4 &&
+                   convType != D3D9ConversionFormat_A1R5G5B5 &&
+                   convType != D3D9ConversionFormat_R5G6B5)) {
+        Logger::err(str::format("Reading back format ", pResource->Desc()->Format, " is not supported. It is uploaded using the format converter."));
       }
 
       if (pResource->GetImage() != nullptr) {
@@ -4629,6 +4633,45 @@ namespace dxvk {
 
       if (!WaitForResource(mappedBuffer, pResource->GetMappingBufferSequenceNumber(Subresource), Flags))
         return D3DERR_WASSTILLDRAWING;
+
+      auto convertFormat = pResource->GetFormatMapping().ConversionFormatInfo;
+      if (convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4 ||
+          convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5 ||
+          convertFormat.FormatType == D3D9ConversionFormat_R5G6B5) {
+
+        uint32_t pitch32 = levelExtent.width * 4;
+        uint32_t slicePitch32 = pitch32 * levelExtent.height;
+
+        uint32_t pitch16 = align(levelExtent.width * 2, 4);
+        uint32_t slicePitch16 = pitch16 * levelExtent.height;
+
+        for (uint32_t z = 0; z < levelExtent.depth; z++) {
+          for (uint32_t y = 0; y < levelExtent.height; y++) {
+            uint32_t* srcRow = reinterpret_cast<uint32_t*>(
+              reinterpret_cast<uint8_t*>(mapPtr) + z * slicePitch32 + y * pitch32);
+            uint16_t* dstRow = reinterpret_cast<uint16_t*>(
+              reinterpret_cast<uint8_t*>(mapPtr) + z * slicePitch16 + y * pitch16);
+
+            for (uint32_t x = 0; x < levelExtent.width; x++) {
+              uint32_t pixel = srcRow[x];
+              uint8_t b = (pixel >>  0) & 0xff;
+              uint8_t g = (pixel >>  8) & 0xff;
+              uint8_t r = (pixel >> 16) & 0xff;
+              uint8_t a = (pixel >> 24) & 0xff;
+
+              uint16_t packed;
+              if (convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4) {
+                packed = ((a >> 4) << 12) | ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+              } else if (convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5) {
+                packed = ((a > 127 ? 1u : 0u) << 15) | ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+              } else { // R5G6B5
+                packed = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+              }
+              dstRow[x] = packed;
+            }
+          }
+        }
+      }
     }
 
     const bool atiHack = desc.Format == D3D9Format::ATI1 || desc.Format == D3D9Format::ATI2;
@@ -4693,10 +4736,16 @@ namespace dxvk {
       }
     }
 
+    DxvkFormatInfo demotedFormatInfo = *formatInfo;
+    if (formatMapping.ConversionFormatInfo.FormatType == D3D9ConversionFormat_A4R4G4B4 ||
+        formatMapping.ConversionFormatInfo.FormatType == D3D9ConversionFormat_A1R5G5B5 ||
+        formatMapping.ConversionFormatInfo.FormatType == D3D9ConversionFormat_R5G6B5)
+      demotedFormatInfo.elementSize = 2;
+
     const uint32_t offset = CalcImageLockOffset(
       pLockedBox->SlicePitch,
       pLockedBox->RowPitch,
-      (!atiHack) ? formatInfo : nullptr,
+      (!atiHack) ? &demotedFormatInfo : nullptr,
       pBox);
 
     uint8_t* data = reinterpret_cast<uint8_t*>(mapPtr);
