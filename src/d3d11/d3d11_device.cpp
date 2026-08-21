@@ -1976,7 +1976,7 @@ namespace dxvk {
     if (featureLevel >= D3D_FEATURE_LEVEL_9_1) {
       enabled.core.features.depthClamp                            = VK_TRUE;
       enabled.core.features.depthBiasClamp                        = VK_TRUE;
-      enabled.core.features.fillModeNonSolid                      = VK_TRUE;
+      enabled.core.features.fillModeNonSolid                      = supported.core.features.fillModeNonSolid;
       enabled.core.features.pipelineStatisticsQuery               = supported.core.features.pipelineStatisticsQuery;
       enabled.core.features.sampleRateShading                     = VK_TRUE;
       enabled.core.features.samplerAnisotropy                     = supported.core.features.samplerAnisotropy;
