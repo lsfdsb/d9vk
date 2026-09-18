@@ -475,6 +475,8 @@ namespace dxvk {
     const RECT*    pDestRect,
           HWND     hDestWindowOverride,
     const RGNDATA* pDirtyRegion) {
+    dxvk::prof::frameEnd();
+    dxvk::prof::Scope _prof(dxvk::prof::Present);
     return PresentEx(
       pSourceRect,
       pDestRect,
