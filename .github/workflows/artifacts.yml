@@ -13,6 +13,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y mingw-w64 meson ninja-build glslang-tools
     - name: Build d3d9 (32-bit, GCC mingw posix)
       run: |
+        grep -rl 'D3DDEVINFO_RESOURCEMANAGER' src | xargs sed -i 's/D3DDEVINFO_RESOURCEMANAGER/D3DDEVINFO_D3DRESOURCEMANAGER/g'   # Ubuntu mingw-w64 headers use the old name
         sed -e 's/i686-w64-mingw32-gcc/i686-w64-mingw32-gcc-posix/' -e 's/i686-w64-mingw32-g++/i686-w64-mingw32-g++-posix/' build-win32.txt > build-win32-posix.txt
         meson setup --cross-file build-win32-posix.txt --buildtype release -Denable_dxgi=false -Denable_d3d10=false -Denable_d3d11=false build.w32
         ninja -C build.w32
