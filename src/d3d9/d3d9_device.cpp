@@ -4930,9 +4930,17 @@ namespace dxvk {
     else {
       const void* mapPtr = MapTexture(pSrcTexture, SrcSubresource);
 
-      if (unlikely(SrcOffset.x != 0 || SrcOffset.y != 0 || SrcOffset.z != 0
+      const bool is16BitPromotion =
+           convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4
+        || convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5
+        || convertFormat.FormatType == D3D9ConversionFormat_R5G6B5;
+
+      // The 16-bit promotion path below honours SrcOffset/SrcExtent; only the
+      // shader-based converters ignore the rect, so warn for those alone.
+      if (unlikely(!is16BitPromotion
+        && (SrcOffset.x != 0 || SrcOffset.y != 0 || SrcOffset.z != 0
         || DestOffset.x != 0 || DestOffset.y != 0 || DestOffset.z != 0
-        || SrcExtent != srcTexLevelExtent)) {
+        || SrcExtent != srcTexLevelExtent))) {
         Logger::warn("Offset and rect not supported with the texture converter.");
       }
 
