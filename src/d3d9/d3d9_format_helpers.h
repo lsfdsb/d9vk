@@ -16,6 +16,7 @@ namespace dxvk {
     uint32_t extentW,    extentH;
     uint32_t srcPitch;      // in texels
     uint32_t forceAlpha;    // X4R4G4B4 / X1R5G5B5
+    uint32_t format;        // 0 = A4R4G4B4, 1 = A1R5G5B5, 2 = R5G6B5
   };
 
   class D3D9FormatHelper {
@@ -29,8 +30,8 @@ namespace dxvk {
     /**
      * \brief Compute shader decoding packed 16-bit formats into BGRA8
      *
-     * Bound on the caller's context (slots Packed16ImageSlot / Packed16BufferSlot,
-     * spec constant 0 = 0:A4R4G4B4 1:A1R5G5B5 2:R5G6B5).
+     * Bound on the caller's context (slots Packed16ImageSlot / Packed16BufferSlot);
+     * the format is selected through D3D9Packed16Args::format.
      */
     const Rc<DxvkShader>& Packed16Shader() const { return m_packed16Shader; }
 
