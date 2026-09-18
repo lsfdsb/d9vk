@@ -1,4 +1,5 @@
 #include "d3d9_device.h"
+#include "d3d9_profile.h"
 
 #include <cstring>
 
@@ -538,6 +539,7 @@ namespace dxvk {
           D3DPOOL             Pool,
           IDirect3DTexture9** ppTexture,
           HANDLE*             pSharedHandle) {
+    dxvk::prof::Scope _prof(dxvk::prof::Create);
     InitReturnPtr(ppTexture);
 
     if (unlikely(ppTexture == nullptr))
@@ -843,6 +845,7 @@ namespace dxvk {
     const RECT*              pSourceRect,
           IDirect3DSurface9* pDestinationSurface,
     const POINT*             pDestPoint) {
+    dxvk::prof::Scope _prof(dxvk::prof::Upload);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9Surface* src = static_cast<D3D9Surface*>(pSourceSurface);
@@ -919,6 +922,7 @@ namespace dxvk {
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::UpdateTexture(
           IDirect3DBaseTexture9* pSourceTexture,
           IDirect3DBaseTexture9* pDestinationTexture) {
+    dxvk::prof::Scope _prof(dxvk::prof::Upload);
     D3D9DeviceLock lock = LockDevice();
 
     if (!pDestinationTexture || !pSourceTexture)
@@ -996,6 +1000,7 @@ namespace dxvk {
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::GetRenderTargetData(
           IDirect3DSurface9* pRenderTarget,
           IDirect3DSurface9* pDestSurface) {
+    dxvk::prof::Scope _prof(dxvk::prof::Other);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(IsDeviceLost())) {
@@ -1073,6 +1078,7 @@ namespace dxvk {
           IDirect3DSurface9*   pDestSurface,
     const RECT*                pDestRect,
           D3DTEXTUREFILTERTYPE Filter) {
+    dxvk::prof::Scope _prof(dxvk::prof::Other);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9Surface* dst = static_cast<D3D9Surface*>(pDestSurface);
@@ -1282,6 +1288,7 @@ namespace dxvk {
           IDirect3DSurface9* pSurface,
     const RECT*              pRect,
           D3DCOLOR           Color) {
+    dxvk::prof::Scope _prof(dxvk::prof::Other);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9Surface* dst = static_cast<D3D9Surface*>(pSurface);
@@ -1373,6 +1380,7 @@ namespace dxvk {
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetRenderTarget(
           DWORD              RenderTargetIndex,
           IDirect3DSurface9* pRenderTarget) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely((pRenderTarget == nullptr && RenderTargetIndex == 0)))
@@ -1508,6 +1516,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetDepthStencilSurface(IDirect3DSurface9* pNewZStencil) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9Surface* ds = static_cast<D3D9Surface*>(pNewZStencil);
@@ -1560,6 +1569,7 @@ namespace dxvk {
   // Some games don't even call them.
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::BeginScene() {
+    dxvk::prof::Scope _prof(dxvk::prof::Other);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(m_flags.test(D3D9DeviceFlag::InScene)))
@@ -1572,6 +1582,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::EndScene() {
+    dxvk::prof::Scope _prof(dxvk::prof::Other);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(!m_flags.test(D3D9DeviceFlag::InScene)))
@@ -1592,6 +1603,7 @@ namespace dxvk {
           D3DCOLOR Color,
           float    Z,
           DWORD    Stencil) {
+    dxvk::prof::Scope _prof(dxvk::prof::Clear);
     if (unlikely(!Count && pRects))
       return D3D_OK;
 
@@ -1760,6 +1772,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetTransform(D3DTRANSFORMSTATETYPE State, const D3DMATRIX* pMatrix) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     return SetStateTransform(GetTransformIndex(State), pMatrix);
   }
 
@@ -1796,6 +1809,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetViewport(const D3DVIEWPORT9* pViewport) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(ShouldRecord()))
@@ -1827,6 +1841,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetMaterial(const D3DMATERIAL9* pMaterial) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(pMaterial == nullptr))
@@ -1855,6 +1870,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetLight(DWORD Index, const D3DLIGHT9* pLight) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(pLight == nullptr))
@@ -1983,6 +1999,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetRenderState(D3DRENDERSTATETYPE State, DWORD Value) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     // D3D9 only allows reading for values 0 and 7-255 so we don't need to do anything but return OK
@@ -2417,6 +2434,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetTexture(DWORD Stage, IDirect3DBaseTexture9* pTexture) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetTexture);
     if (unlikely(InvalidSampler(Stage)))
       return D3D_OK;
 
@@ -2447,6 +2465,7 @@ namespace dxvk {
           DWORD                    Stage,
           D3DTEXTURESTAGESTATETYPE Type,
           DWORD                    Value) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     return SetStateTextureStageState(Stage, RemapTextureStageStateType(Type), Value);
   }
 
@@ -2477,6 +2496,7 @@ namespace dxvk {
           DWORD               Sampler,
           D3DSAMPLERSTATETYPE Type,
           DWORD               Value) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     if (unlikely(InvalidSampler(Sampler)))
       return D3D_OK;
 
@@ -2521,6 +2541,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetScissorRect(const RECT* pRect) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(pRect == nullptr))
@@ -2588,6 +2609,7 @@ namespace dxvk {
           D3DPRIMITIVETYPE PrimitiveType,
           UINT             StartVertex,
           UINT             PrimitiveCount) {
+    dxvk::prof::Scope _prof(dxvk::prof::Draw);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(m_state.vertexDecl == nullptr))
@@ -2638,6 +2660,7 @@ namespace dxvk {
           UINT             NumVertices,
           UINT             StartIndex,
           UINT             PrimitiveCount) {
+    dxvk::prof::Scope _prof(dxvk::prof::Draw);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(m_state.vertexDecl == nullptr))
@@ -2687,6 +2710,7 @@ namespace dxvk {
           UINT             PrimitiveCount,
     const void*            pVertexStreamZeroData,
           UINT             VertexStreamZeroStride) {
+    dxvk::prof::Scope _prof(dxvk::prof::DrawUP);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(m_state.vertexDecl == nullptr))
@@ -2739,6 +2763,7 @@ namespace dxvk {
           D3DFORMAT        IndexDataFormat,
     const void*            pVertexStreamZeroData,
           UINT             VertexStreamZeroStride) {
+    dxvk::prof::Scope _prof(dxvk::prof::DrawUP);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(m_state.vertexDecl == nullptr))
@@ -2989,6 +3014,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetFVF(DWORD FVF) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (FVF == 0)
@@ -3056,6 +3082,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetVertexShader(IDirect3DVertexShader9* pShader) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9VertexShader* shader = static_cast<D3D9VertexShader*>(pShader);
@@ -3118,6 +3145,7 @@ namespace dxvk {
           UINT   StartRegister,
     const float* pConstantData,
           UINT   Vector4fCount) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     return SetShaderConstants<
@@ -3209,6 +3237,7 @@ namespace dxvk {
           IDirect3DVertexBuffer9* pStreamData,
           UINT                    OffsetInBytes,
           UINT                    Stride) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     if (unlikely(StreamNumber >= caps::MaxStreams))
@@ -3333,6 +3362,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetIndices(IDirect3DIndexBuffer9* pIndexData) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9IndexBuffer* buffer = static_cast<D3D9IndexBuffer*>(pIndexData);
@@ -3397,6 +3427,7 @@ namespace dxvk {
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetPixelShader(IDirect3DPixelShader9* pShader) {
+    dxvk::prof::Scope _prof(dxvk::prof::SetState);
     D3D9DeviceLock lock = LockDevice();
 
     D3D9PixelShader* shader = static_cast<D3D9PixelShader*>(pShader);
@@ -4455,6 +4486,7 @@ namespace dxvk {
             D3DLOCKED_BOX*          pLockedBox,
       const D3DBOX*                 pBox,
             DWORD                   Flags) {
+    dxvk::prof::Scope _prof(dxvk::prof::Lock);
     D3D9DeviceLock lock = LockDevice();
 
     UINT Subresource = pResource->CalcSubresource(Face, MipLevel);
@@ -4761,6 +4793,7 @@ namespace dxvk {
         D3D9CommonTexture*      pResource,
         UINT                    Face,
         UINT                    MipLevel) {
+    dxvk::prof::Scope _prof(dxvk::prof::Unlock);
     D3D9DeviceLock lock = LockDevice();
 
     UINT Subresource = pResource->CalcSubresource(Face, MipLevel);
