@@ -4990,8 +4990,7 @@ namespace dxvk {
         args.extentH    = SrcExtent.height;
         args.srcPitch   = uint32_t(packedPitch / 2);
         args.forceAlpha = (srcFmt == D3D9Format::X4R4G4B4 || srcFmt == D3D9Format::X1R5G5B5) ? 1u : 0u;
-
-        const uint32_t fmtConst =
+        args.format     =
             convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4 ? 0u
           : convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5 ? 1u : 2u;
 
@@ -5016,10 +5015,8 @@ namespace dxvk {
           cShader  = m_converter->Packed16Shader(),
           cDstView = std::move(dstView),
           cSrcView = std::move(srcView),
-          cArgs    = args,
-          cFormat  = fmtConst
-        ] (DxvkContext* ctx) {
-          ctx->setSpecConstant(VK_PIPELINE_BIND_POINT_COMPUTE, 0, cFormat);
+          cArgs    = args
+                ] (DxvkContext* ctx) {
           ctx->bindResourceView(D3D9FormatHelper::Packed16ImageSlot,  cDstView, nullptr);
           ctx->bindResourceView(D3D9FormatHelper::Packed16BufferSlot, nullptr,  cSrcView);
           ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, cShader);
