@@ -7,6 +7,7 @@
 #include <d3d9_convert_w11v11u10.h>
 #include <d3d9_convert_nv12.h>
 #include <d3d9_convert_yv12.h>
+#include <d3d9_convert_packed16.h>
 
 namespace dxvk {
 
@@ -121,6 +122,7 @@ namespace dxvk {
     m_shaders[D3D9ConversionFormat_W11V11U10] = InitShader(d3d9_convert_w11v11u10);
     m_shaders[D3D9ConversionFormat_NV12] = InitShader(d3d9_convert_nv12);
     m_shaders[D3D9ConversionFormat_YV12] = InitShader(d3d9_convert_yv12);
+    m_packed16Shader = InitPacked16Shader(d3d9_convert_packed16);
   }
 
 
@@ -136,6 +138,23 @@ namespace dxvk {
       info.resourceSlots = resourceSlots.data();
       info.pushConstOffset = 0;
       info.pushConstSize = sizeof(VkExtent2D);
+
+      return new DxvkShader(info, std::move(code));
+  }
+
+
+  Rc<DxvkShader> D3D9FormatHelper::InitPacked16Shader(SpirvCodeBuffer code) {
+      const std::array<DxvkResourceSlot, 2> resourceSlots = { {
+        { Packed16ImageSlot,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,        VK_IMAGE_VIEW_TYPE_2D },
+        { Packed16BufferSlot, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, VK_IMAGE_VIEW_TYPE_1D },
+      } };
+
+      DxvkShaderCreateInfo info;
+      info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+      info.resourceSlotCount = resourceSlots.size();
+      info.resourceSlots = resourceSlots.data();
+      info.pushConstOffset = 0;
+      info.pushConstSize = sizeof(D3D9Packed16Args);
 
       return new DxvkShader(info, std::move(code));
   }

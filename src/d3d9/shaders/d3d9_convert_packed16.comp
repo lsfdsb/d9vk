@@ -1,0 +1,61 @@
+#version 450
+
+// Decodes packed 16-bit D3D9 formats (A4R4G4B4, A1R5G5B5, R5G6B5 and their
+// X variants) into a B8G8R8A8 storage image. Used on GPUs whose Vulkan driver
+// has no packed 16-bit formats (MoltenVK on AMD/Intel Macs). Rect-aware: reads
+// `extent` texels from a tightly packed R16_UINT buffer and writes them at
+// `dst_offset`.
+
+layout(
+  local_size_x = 8,
+  local_size_y = 8,
+  local_size_z = 1) in;
+
+// 0 = A4R4G4B4, 1 = A1R5G5B5, 2 = R5G6B5
+layout(constant_id = 0) const uint c_format = 0;
+
+layout(binding = 1200)
+writeonly uniform image2D dst;
+
+layout(binding = 1201) uniform usamplerBuffer src;
+
+layout(push_constant)
+uniform u_info_t {
+  ivec2 src_offset;
+  ivec2 dst_offset;
+  uvec2 extent;
+  uint  src_pitch;    // in texels
+  uint  force_alpha;  // X4R4G4B4 / X1R5G5B5
+} u_info;
+
+void main() {
+  uvec2 id = gl_GlobalInvocationID.xy;
+
+  if (all(lessThan(id, u_info.extent))) {
+    ivec2 sp = u_info.src_offset + ivec2(id);
+    uint  p  = texelFetch(src, sp.y * int(u_info.src_pitch) + sp.x).r;
+    vec4  c;
+
+    if (c_format == 0u) {
+      c = vec4(float((p >>  8) & 0xFu),
+               float((p >>  4) & 0xFu),
+               float( p        & 0xFu),
+               float((p >> 12) & 0xFu)) / 15.0;
+    } else if (c_format == 1u) {
+      c = vec4(float((p >> 10) & 0x1Fu) / 31.0,
+               float((p >>  5) & 0x1Fu) / 31.0,
+               float( p        & 0x1Fu) / 31.0,
+               float((p >> 15) & 0x1u));
+    } else {
+      c = vec4(float((p >> 11) & 0x1Fu) / 31.0,
+               float((p >>  5) & 0x3Fu) / 63.0,
+               float( p        & 0x1Fu) / 31.0,
+               1.0);
+    }
+
+    if (u_info.force_alpha != 0u)
+      c.a = 1.0;
+
+    imageStore(dst, u_info.dst_offset + ivec2(id), c);
+  }
+}

@@ -1,5 +1,7 @@
 #include "d3d9_device.h"
 
+#include <cstring>
+
 #include "d3d9_annotation.h"
 #include "d3d9_common_texture.h"
 #include "d3d9_interface.h"
@@ -4958,9 +4960,81 @@ namespace dxvk {
       VkExtent3D srcBlockCount = util::computeBlockCount(srcTexLevelExtent, srcBlockSize);
       srcBlockCount.height *= std::min(pSrcTexture->GetPlaneCount(), 2u);
 
-      if (convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4 ||
-          convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5 ||
-          convertFormat.FormatType == D3D9ConversionFormat_R5G6B5) {
+      if (is16BitPromotion && SrcExtent.depth == 1) {
+        // GPU path: copy the rect rows of 16-bit texels into a tightly packed
+        // staging buffer and let d3d9_convert_packed16.comp decode them straight
+        // into the BGRA8 image at DestOffset. Dispatched on the main context so
+        // it stays ordered with the app's own draws, no CS-thread sync needed.
+        const VkDeviceSize srcPitch    = align(2 * srcBlockCount.width, 4);
+        const VkDeviceSize rowBytes    = 2 * VkDeviceSize(SrcExtent.width);
+        const VkDeviceSize packedPitch = align(rowBytes, 4);
+
+        D3D9BufferSlice slice = AllocStagingBuffer(packedPitch * SrcExtent.height);
+
+        const uint8_t* srcBase = reinterpret_cast<const uint8_t*>(mapPtr)
+          + VkDeviceSize(SrcOffset.z) * srcPitch * srcBlockCount.height
+          + VkDeviceSize(SrcOffset.y) * srcPitch
+          + VkDeviceSize(SrcOffset.x) * 2;
+
+        for (uint32_t y = 0; y < SrcExtent.height; y++) {
+          std::memcpy(reinterpret_cast<uint8_t*>(slice.mapPtr) + y * packedPitch,
+                      srcBase + y * srcPitch, rowBytes);
+        }
+
+        const auto srcFmt = pDestTexture->Desc()->Format;
+
+        D3D9Packed16Args args = { };
+        args.dstOffsetX = DestOffset.x;
+        args.dstOffsetY = DestOffset.y;
+        args.extentW    = SrcExtent.width;
+        args.extentH    = SrcExtent.height;
+        args.srcPitch   = uint32_t(packedPitch / 2);
+        args.forceAlpha = (srcFmt == D3D9Format::X4R4G4B4 || srcFmt == D3D9Format::X1R5G5B5) ? 1u : 0u;
+
+        const uint32_t fmtConst =
+            convertFormat.FormatType == D3D9ConversionFormat_A4R4G4B4 ? 0u
+          : convertFormat.FormatType == D3D9ConversionFormat_A1R5G5B5 ? 1u : 2u;
+
+        DxvkImageViewCreateInfo viewInfo;
+        viewInfo.type      = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format    = image->info().format;
+        viewInfo.usage     = VK_IMAGE_USAGE_STORAGE_BIT;
+        viewInfo.aspect    = dstLayers.aspectMask;
+        viewInfo.minLevel  = dstLayers.mipLevel;
+        viewInfo.numLevels = 1;
+        viewInfo.minLayer  = dstLayers.baseArrayLayer;
+        viewInfo.numLayers = 1;
+        Rc<DxvkImageView> dstView = m_dxvkDevice->createImageView(image, viewInfo);
+
+        DxvkBufferViewCreateInfo bufInfo;
+        bufInfo.format      = VK_FORMAT_R16_UINT;
+        bufInfo.rangeOffset = slice.slice.offset();
+        bufInfo.rangeLength = slice.slice.length();
+        Rc<DxvkBufferView> srcView = m_dxvkDevice->createBufferView(slice.slice.buffer(), bufInfo);
+
+        EmitCs([
+          cShader  = m_converter->Packed16Shader(),
+          cDstView = std::move(dstView),
+          cSrcView = std::move(srcView),
+          cArgs    = args,
+          cFormat  = fmtConst
+        ] (DxvkContext* ctx) {
+          ctx->setSpecConstant(VK_PIPELINE_BIND_POINT_COMPUTE, 0, cFormat);
+          ctx->bindResourceView(D3D9FormatHelper::Packed16ImageSlot,  cDstView, nullptr);
+          ctx->bindResourceView(D3D9FormatHelper::Packed16BufferSlot, nullptr,  cSrcView);
+          ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, cShader);
+          ctx->pushConstants(0, sizeof(cArgs), &cArgs);
+          ctx->dispatch((cArgs.extentW + 7) / 8, (cArgs.extentH + 7) / 8, 1);
+        });
+
+        TrackTextureMappingBufferSequenceNumber(pSrcTexture, SrcSubresource);
+        UnmapTextures();
+        ConsiderFlush(GpuFlushType::ImplicitWeakHint);
+        return;
+      }
+
+      if (is16BitPromotion) {
+        // CPU fallback (volume textures)
         VkDeviceSize srcPitch = align(2 * srcBlockCount.width, 4);
         VkDeviceSize srcSlicePitch = srcPitch * srcBlockCount.height;
 
