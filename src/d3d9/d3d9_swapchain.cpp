@@ -1,4 +1,5 @@
 #include "d3d9_swapchain.h"
+#include "d3d9_profile.h"
 #include "d3d9_surface.h"
 #include "d3d9_monitor.h"
 
@@ -883,7 +884,7 @@ namespace dxvk {
 
 
   void D3D9SwapChainEx::PresentImage(UINT SyncInterval) {
-    m_parent->Flush();
+    { dxvk::prof::Scope _p(dxvk::prof::PFlush); m_parent->Flush(); }
 
     // Retrieve the image and image view to present
     auto swapImage = m_backBuffers[0]->GetCommonTexture()->GetImage();
@@ -893,7 +894,7 @@ namespace dxvk {
     ++m_frameId;
 
     for (uint32_t i = 0; i < SyncInterval || i < 1; i++) {
-      SynchronizePresent();
+      { dxvk::prof::Scope _p(dxvk::prof::PSyncPresent); SynchronizePresent(); }
 
       // Presentation semaphores and WSI swap chain image
       vk::PresenterInfo info = m_presenter->info();
@@ -901,7 +902,7 @@ namespace dxvk {
 
       uint32_t imageIndex = 0;
 
-      VkResult status = m_presenter->acquireNextImage(sync, imageIndex);
+      VkResult status; { dxvk::prof::Scope _p(dxvk::prof::PAcquire); status = m_presenter->acquireNextImage(sync, imageIndex); }
 
       while (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR) {
         RecreateSwapChain(m_vsync);
@@ -910,6 +911,7 @@ namespace dxvk {
         status = m_presenter->acquireNextImage(sync, imageIndex);
       }
 
+      dxvk::prof::Scope* _prec = new dxvk::prof::Scope(dxvk::prof::PRecord);
       m_context->beginRecording(
         m_device->createCommandList());
 
@@ -931,10 +933,10 @@ namespace dxvk {
       if (i + 1 >= SyncInterval)
         m_context->signal(m_frameLatencySignal, m_frameId);
 
-      SubmitPresent(sync, i);
+      delete _prec; { dxvk::prof::Scope _p(dxvk::prof::PSubmit); SubmitPresent(sync, i); }
     }
 
-    SyncFrameLatency();
+    { dxvk::prof::Scope _p(dxvk::prof::PSyncLat); SyncFrameLatency(); }
 
     // Rotate swap chain buffers so that the back
     // buffer at index 0 becomes the front buffer.

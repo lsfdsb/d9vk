@@ -8,8 +8,8 @@
 
 namespace dxvk::prof {
 
-  enum Cat : uint32_t { Draw, DrawUP, SetTexture, SetState, Lock, Unlock, Upload, Present, Clear, Create, Other, PFlush, PAcquire, PRecord, PSubmit, PSyncLat, Count };
-  static const char* const kNames[Count] = { "draw", "drawUP", "setTexture", "setState", "lock", "unlock", "upload", "present", "clear", "create", "other", "p.flush", "p.acquire", "p.record", "p.submit", "p.syncLatency" };
+  enum Cat : uint32_t { Draw, DrawUP, SetTexture, SetState, Lock, Unlock, Upload, Present, Clear, Create, Other, PFlush, PAcquire, PRecord, PSubmit, PSyncLat, PSyncPresent, Count };
+  static const char* const kNames[Count] = { "draw", "drawUP", "setTexture", "setState", "lock", "unlock", "upload", "present", "clear", "create", "other", "p.flush", "p.acquire", "p.record", "p.submit", "p.syncLatency", "p.syncPresent" };
 
   struct Acc {
     uint64_t ns[Count]    = { };
